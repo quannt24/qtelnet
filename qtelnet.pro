@@ -13,8 +13,12 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp
+        mainwindow.cpp \
+    qtelnet.cpp
 
-HEADERS  += mainwindow.h
+HEADERS  += mainwindow.h \
+    qtelnet.h
+
+LIBS += -ltelnet
 
 FORMS    += mainwindow.ui

@@ -1,6 +1,8 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "qtelnet.h"
+
 #include <QMainWindow>
 
 namespace Ui {
@@ -17,6 +19,7 @@ public:
 
 private:
     Ui::MainWindow *ui;
+    qtelnet *tracker;
 
 private slots:
     void onConnectClicked();
