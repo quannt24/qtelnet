@@ -21,14 +21,29 @@ MainWindow::~MainWindow()
 
 void MainWindow::onConnectClicked()
 {
-    qDebug() << "Connect clicked";
+    int r;
+
+    ui->pbConnect->setEnabled(false); // Temporary disable button
 
     if (!tracker) {
-        qDebug() << "Create tracker";
+        qDebug() << "Connecting";
         tracker = new qtelnet;
+        r = qtelnet::telnet_connect(*tracker, "127.0.0.1", "23");
+        if (r == 0) {
+            // Connection success
+            ui->pbConnect->setText("Disconnect");
+        } else {
+            qtelnet::telnet_disconnect(*tracker);
+            delete tracker;
+            tracker = NULL;
+        }
     } else {
-        qDebug() << "Remove tracker";
+        qDebug() << "Disconnect";
+        qtelnet::telnet_disconnect(*tracker);
         delete tracker;
         tracker = NULL;
+        ui->pbConnect->setText("Connect");
     }
+
+    ui->pbConnect->setEnabled(true);
 }

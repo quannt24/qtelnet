@@ -1,9 +1,10 @@
-#ifndef QTELNET_H
+﻿#ifndef QTELNET_H
 #define QTELNET_H
 
 #include <string>
 #include <termios.h>
 #include <libtelnet.h>
+#include <pthread.h>
 
 
 using namespace std;
@@ -31,6 +32,9 @@ private:
     termios *orig_tios; // struct termios
     telnet_t *telnet; // Telnet state box
     int do_echo;
+    int connected; // Connected to server
+    pthread_t workerThread;
+    int worker_running;
 
     /**
      * @brief telnet_event_handler
@@ -49,6 +53,12 @@ private:
      * @return Number of sent byte; -1 on error
      */
     static int send_data(qtelnet *tracker, const char *buffer, size_t size);
+    /**
+     * @brief worker Worker thread for receiving data from server
+     * @param data
+     * @return
+     */
+    static void *worker(void *data);
 };
 
 #endif // QTELNET_H

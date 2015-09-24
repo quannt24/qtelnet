@@ -8,6 +8,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <cstdlib>
+#include <poll.h>
 
 
 using namespace std;
@@ -16,12 +17,17 @@ int qtelnet::telnet_connect(qtelnet &tracker,
                             const char *host,
                             const char *port)
 {
+    if (tracker.connected) {
+        cerr << "ERROR: qtelnet tracker state is connected\n";
+        return -1;
+    }
+
     struct addrinfo hints;
     struct addrinfo *ai;
     int sock;
     int rs;
-    struct termios *orig_tios = new termios;
     telnet_t *telnet;
+    pthread_t thread;
 
     /* look up server host */
     memset(&hints, 0, sizeof(hints));
@@ -58,8 +64,20 @@ int qtelnet::telnet_connect(qtelnet &tracker,
     telnet = telnet_init(telopts, telnet_event_handler, 0, &tracker);
 
     tracker.sockfd = sock;
-    tracker.orig_tios = orig_tios;
     tracker.telnet = telnet;
+    tracker.connected = 1;
+
+    if (!tracker.worker_running) {
+        rs = pthread_create(&thread, NULL, &worker, &tracker);
+        if (rs) {
+            cerr << "pthread_create() failed: " << strerror(errno) << "\n";
+            return 4;
+        }
+        tracker.workerThread = thread;
+    } else {
+        cerr << "ERROR: qtelnet tracker has already track a worker thread\n";
+        return 4;
+    }
 
     return 0;
 }
@@ -74,6 +92,12 @@ void qtelnet::telnet_disconnect(qtelnet &tracker)
         telnet_free(tracker.telnet);
         tracker.telnet = NULL;
     }
+
+    // Stop worker thread
+    if (tracker.worker_running) {
+        tracker.connected = 0;
+        pthread_join(tracker.workerThread, NULL);
+    }
 }
 
 qtelnet::qtelnet()
@@ -82,7 +106,11 @@ qtelnet::qtelnet()
 
     sockfd = -1;
     orig_tios = new termios;
+    telnet = NULL;
     do_echo = 1;
+    connected = 0;
+    workerThread = -1;
+    worker_running = 0;
 
     /* get current terminal settings, set raw mode, make sure
      * to restore terminal settings */
@@ -94,8 +122,15 @@ qtelnet::qtelnet()
 
 qtelnet::~qtelnet()
 {
+    // Stop worker thread in case telnet_disconnect is not called
+    connected = 0;
+    if (worker_running) {
+        pthread_join(workerThread, NULL);
+    }
+
     if (orig_tios != NULL) {
         tcsetattr(STDOUT_FILENO, TCSADRAIN, orig_tios);
+        delete orig_tios;
     }
 }
 
@@ -108,7 +143,8 @@ void qtelnet::telnet_event_handler(telnet_t *telnet,
     switch (event->type) {
     case TELNET_EV_DATA:
         /* data received */
-        cout << setw(event->data.size) << event->data.buffer << "\n";
+        cout << setw(event->data.size) << event->data.buffer << "\r\n";
+        cout << flush;
         break;
 
     case TELNET_EV_SEND:
@@ -181,4 +217,56 @@ int qtelnet::send_data(qtelnet *tracker, const char *buffer, size_t size)
     }
 
     return (size - len);
+}
+
+void *qtelnet::worker(void *data)
+{
+    if (!data) pthread_exit(NULL);
+
+    qtelnet *tracker = (qtelnet*) data;
+    tracker->worker_running = 1;
+
+    /* initialize poll descriptors */
+    struct pollfd pfd[2];
+    char buffer[1024];
+    int rs;
+
+    memset(pfd, 0, sizeof(pfd));
+    pfd[0].fd = STDIN_FILENO;
+    pfd[0].events = POLLIN;
+    pfd[1].fd = tracker->sockfd;
+    pfd[1].events = POLLIN;
+
+    /* loop while both connections are open */
+    while (tracker->connected && poll(pfd, 2, 2000) != -1) {
+        /* read from stdin */
+        /*
+        if (pfd[0].revents & POLLIN) {
+            if ((rs = read(STDIN_FILENO, buffer, sizeof(buffer))) > 0) {
+                _input(buffer, rs);
+            } else if (rs == 0) {
+                break;
+            } else {
+                fprintf(stderr, "recv(server) failed: %s\n",
+                        strerror(errno));
+                exit(1);
+            }
+        }*/
+
+        /* read from client */
+        if (pfd[1].revents & POLLIN) {
+            if ((rs = recv(tracker->sockfd, buffer, sizeof(buffer), 0)) > 0) {
+                telnet_recv(tracker->telnet, buffer, rs);
+            } else if (rs == 0) {
+                break;
+            } else {
+                cerr << "recv(client) failed: " << strerror(errno) << "\n";
+                pthread_exit(NULL);
+            }
+        }
+    }
+
+    cout << "Worker stopped\r\n";
+    tracker->worker_running = 0;
+    pthread_exit(NULL);
 }
