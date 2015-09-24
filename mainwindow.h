@@ -21,6 +21,8 @@ private:
     Ui::MainWindow *ui;
     qtelnet *tracker;
 
+    static void onDataRecv(const char *data, int size, void *bundle);
+
 private slots:
     void onConnectClicked();
 };

@@ -111,6 +111,7 @@ qtelnet::qtelnet()
     connected = 0;
     workerThread = -1;
     worker_running = 0;
+    data_recv = NULL;
 
     /* get current terminal settings, set raw mode, make sure
      * to restore terminal settings */
@@ -134,6 +135,21 @@ qtelnet::~qtelnet()
     }
 }
 
+void qtelnet::set_data_recv_callback(const qtelnet::data_recv_callback_t callback)
+{
+    this->data_recv = callback;
+}
+
+void qtelnet::set_data_recv_bundle(void *bundle)
+{
+    data_recv_bundle = bundle;
+}
+
+
+/* =================================================
+ * Private members
+ * ================================================= */
+
 void qtelnet::telnet_event_handler(telnet_t *telnet,
                                    telnet_event_t *event,
                                    void *user_data)
@@ -145,6 +161,9 @@ void qtelnet::telnet_event_handler(telnet_t *telnet,
         /* data received */
         cout << setw(event->data.size) << event->data.buffer << "\r\n";
         cout << flush;
+        if (tracker->data_recv != NULL) {
+            tracker->data_recv(event->data.buffer, event->data.size, tracker->data_recv_bundle);
+        }
         break;
 
     case TELNET_EV_SEND:
@@ -231,6 +250,7 @@ void *qtelnet::worker(void *data)
     char buffer[1024];
     int rs;
 
+    // TODO Use select instead of poll
     memset(pfd, 0, sizeof(pfd));
     pfd[0].fd = STDIN_FILENO;
     pfd[0].events = POLLIN;

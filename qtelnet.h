@@ -12,6 +12,8 @@ using namespace std;
 class qtelnet
 {
 public:
+    typedef void (*data_recv_callback_t)(const char *data, int size, void *bundle);
+
     /**
      * @brief telnet_connect Open socket and onnect to telnet server
      * @param tracker
@@ -27,6 +29,9 @@ public:
     qtelnet();
     ~qtelnet();
 
+    void set_data_recv_callback(const data_recv_callback_t callback);
+    void set_data_recv_bundle(void *bundle);
+
 private:
     int sockfd;
     termios *orig_tios; // struct termios
@@ -35,6 +40,8 @@ private:
     int connected; // Connected to server
     pthread_t workerThread;
     int worker_running;
+    data_recv_callback_t data_recv;
+    void *data_recv_bundle;
 
     /**
      * @brief telnet_event_handler
