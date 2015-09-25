@@ -41,6 +41,11 @@ void MainWindow::onConnectClicked()
     ui->pbConnect->setEnabled(false); // Temporary disable button
 
     if (!tracker) {
+        if (ui->leHost->text().length() == 0 || ui->lePort->text().length() == 0) {
+            ui->pbConnect->setEnabled(true);
+            return;
+        }
+
         qDebug() << "Connecting";
         // Create new tracker for new connection
         tracker = new qtelnet;
@@ -48,10 +53,16 @@ void MainWindow::onConnectClicked()
         tracker->set_data_recv_callback(&(MainWindow::onDataRecv));
         tracker->set_data_recv_bundle((void*) this);
 
-        r = qtelnet::telnet_connect(*tracker, "127.0.0.1", "23");
+        r = qtelnet::telnet_connect(*tracker,
+                                    ui->leHost->text().toStdString().c_str(),
+                                    ui->lePort->text().toStdString().c_str());
         if (r == 0) {
             // Connection success
             ui->pbConnect->setText("Disconnect");
+            ui->leHost->setEnabled(false);
+            ui->lePort->setEnabled(false);
+            ui->leUsername->setEnabled(false);
+            ui->lePassword->setEnabled(false);
         } else {
             // When fail, clean up
             qtelnet::telnet_disconnect(*tracker);
@@ -64,6 +75,10 @@ void MainWindow::onConnectClicked()
         delete tracker;
         tracker = NULL;
         ui->pbConnect->setText("Connect");
+        ui->leHost->setEnabled(true);
+        ui->lePort->setEnabled(true);
+        ui->leUsername->setEnabled(true);
+        ui->lePassword->setEnabled(true);
     }
 
     ui->pbConnect->setEnabled(true);
@@ -72,6 +87,25 @@ void MainWindow::onConnectClicked()
 void MainWindow::onConsoleChanged()
 {
     ui->lbConsole->setText(consoleText);
+
+    // Autologin
+    static QRegExp regxInputUsername(".* login: $");
+    static QRegExp regxInputPassword(".* Password: $");
+
+    if (ui->leUsername->text().length() > 0) {
+        if (regxInputUsername.exactMatch(ui->lbConsole->text())) {
+            qDebug() << "Sending username";
+            qtelnet::send_text(*tracker,
+                               ui->leUsername->text().toStdString().c_str(),
+                               ui->leUsername->text().length());
+        }
+        if (regxInputPassword.exactMatch(ui->lbConsole->text())) {
+            qDebug() << "Sending password";
+            qtelnet::send_text(*tracker,
+                               ui->lePassword->text().toStdString().c_str(),
+                               ui->lePassword->text().length());
+        }
+    }
 }
 
 void MainWindow::onSendClicked()
