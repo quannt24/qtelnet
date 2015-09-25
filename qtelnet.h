@@ -15,7 +15,9 @@ public:
     typedef void (*data_recv_callback_t)(const char *data, int size, void *bundle);
 
     /**
-     * @brief telnet_connect Open socket and onnect to telnet server
+     * @brief telnet_connect
+     * Open socket and onnect to telnet server
+     *
      * @param tracker
      * @param host
      * @param port Default 23
@@ -24,7 +26,14 @@ public:
     static int telnet_connect(qtelnet &tracker,
                               const char *host,
                               const char *port = string("23").c_str());
+    /**
+     * @brief telnet_disconnect
+     * Disconnect, close socket and stop worker thread for receiving data
+     *
+     * @param tracker
+     */
     static void telnet_disconnect(qtelnet &tracker);
+    static void send_text(qtelnet &tracker, const char *text, int len);
 
     qtelnet();
     ~qtelnet();

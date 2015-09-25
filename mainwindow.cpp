@@ -13,6 +13,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // Connect signals and slots
     connect(ui->pbConnect, SIGNAL(clicked(bool)), this, SLOT(onConnectClicked()));
+    connect(this, SIGNAL(consoleChanged()), this, SLOT(onConsoleChanged()));
+    connect(ui->pbSend, SIGNAL(clicked(bool)), this, SLOT(onSendClicked()));
+    connect(ui->leCmd, SIGNAL(returnPressed()), this, SLOT(onSendClicked()));
 }
 
 MainWindow::~MainWindow()
@@ -24,10 +27,11 @@ void MainWindow::onDataRecv(const char *data, int size, void *bundle)
 {
     char buf[size + 1];
     strncpy(buf, data, size);
-    buf[size] = '\0';
+    buf[size] = 0;
 
-    QLabel *console = (QLabel*) bundle;
-    console->setText(console->text().append(buf));
+    MainWindow *window = (MainWindow*) bundle;
+    window->consoleText.append(QString(buf));
+    emit window->consoleChanged();
 }
 
 void MainWindow::onConnectClicked()
@@ -40,7 +44,7 @@ void MainWindow::onConnectClicked()
         qDebug() << "Connecting";
         tracker = new qtelnet; // Create new tracker for new connection
         tracker->set_data_recv_callback(&(MainWindow::onDataRecv));
-        tracker->set_data_recv_bundle((void*) ui->lbConsole);
+        tracker->set_data_recv_bundle((void*) this);
 
         r = qtelnet::telnet_connect(*tracker, "127.0.0.1", "23");
         if (r == 0) {
@@ -60,4 +64,21 @@ void MainWindow::onConnectClicked()
     }
 
     ui->pbConnect->setEnabled(true);
+}
+
+void MainWindow::onConsoleChanged()
+{
+    ui->lbConsole->setText(consoleText);
+}
+
+void MainWindow::onSendClicked()
+{
+    if (ui->leCmd->text().length() == 0) return;
+
+    if (tracker) {
+        qtelnet::send_text(*tracker,
+                           ui->leCmd->text().toStdString().c_str(),
+                           ui->leCmd->text().length());
+    }
+    ui->leCmd->clear();
 }

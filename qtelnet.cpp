@@ -55,7 +55,7 @@ int qtelnet::telnet_connect(qtelnet &tracker,
 
     /* initialize telnet box */
     telnet_telopt_t telopts[] = {
-        { TELNET_TELOPT_ECHO,		TELNET_WONT, TELNET_DO   },
+        { TELNET_TELOPT_ECHO,		TELNET_WONT, TELNET_DONT },
         { TELNET_TELOPT_TTYPE,		TELNET_WILL, TELNET_DONT },
         { TELNET_TELOPT_COMPRESS2,	TELNET_WONT, TELNET_DO   },
         { TELNET_TELOPT_MSSP,		TELNET_WONT, TELNET_DO   },
@@ -98,6 +98,15 @@ void qtelnet::telnet_disconnect(qtelnet &tracker)
         tracker.connected = 0;
         pthread_join(tracker.workerThread, NULL);
     }
+}
+
+void qtelnet::send_text(qtelnet &tracker, const char *text, int len)
+{
+    static char crlf[] = { '\r', '\n' };
+
+    cout << "Sending: '" << text << "'\n";
+    telnet_send(tracker.telnet, text, len);
+    telnet_send(tracker.telnet, crlf, 2);
 }
 
 qtelnet::qtelnet()
@@ -155,11 +164,14 @@ void qtelnet::telnet_event_handler(telnet_t *telnet,
                                    void *user_data)
 {
     qtelnet *tracker = (qtelnet*) user_data;
+    char buffer[1024];
 
     switch (event->type) {
     case TELNET_EV_DATA:
         /* data received */
-        cout << setw(event->data.size) << event->data.buffer << "\r\n";
+        strncpy(buffer, event->data.buffer, event->data.size);
+        buffer[event->data.size] = 0;
+        cout << buffer << "\r\n";
         cout << flush;
         if (tracker->data_recv != NULL) {
             tracker->data_recv(event->data.buffer, event->data.size, tracker->data_recv_bundle);
