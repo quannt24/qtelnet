@@ -42,7 +42,9 @@ void MainWindow::onConnectClicked()
 
     if (!tracker) {
         qDebug() << "Connecting";
-        tracker = new qtelnet; // Create new tracker for new connection
+        // Create new tracker for new connection
+        tracker = new qtelnet;
+        // Add (optional) callback for receiving data from server
         tracker->set_data_recv_callback(&(MainWindow::onDataRecv));
         tracker->set_data_recv_bundle((void*) this);
 
@@ -51,6 +53,7 @@ void MainWindow::onConnectClicked()
             // Connection success
             ui->pbConnect->setText("Disconnect");
         } else {
+            // When fail, clean up
             qtelnet::telnet_disconnect(*tracker);
             delete tracker;
             tracker = NULL;

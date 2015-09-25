@@ -12,6 +12,9 @@ using namespace std;
 class qtelnet
 {
 public:
+    /**
+     * Type of callback function pointer for receiving data from server
+     */
     typedef void (*data_recv_callback_t)(const char *data, int size, void *bundle);
 
     /**
@@ -38,7 +41,19 @@ public:
     qtelnet();
     ~qtelnet();
 
+    /**
+     * @brief set_data_recv_callback
+     * Set callback for receiving data in qtelnet tracker
+     *
+     * @param callback
+     */
     void set_data_recv_callback(const data_recv_callback_t callback);
+    /**
+     * @brief set_data_recv_bundle
+     * Set bundle pointer for callback
+     *
+     * @param bundle Pointer for neccessary data
+     */
     void set_data_recv_bundle(void *bundle);
 
 private:
